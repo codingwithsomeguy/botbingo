@@ -131,3 +131,4 @@ dmypy.json
 # extras
 v0/
 bingotestcard.png
+.*.swp
