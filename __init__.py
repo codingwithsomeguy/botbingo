@@ -159,15 +159,13 @@ def load_word_set(filename):
     return center_word, words
 
 
-def generate_card(word_set_filename):
-    """generate_card generates a bingo card"""
-    center_word, words = load_word_set(word_set_filename)
-
+def generate_card(center_word, word_set):
+    """generate a bingo card, return the image file (bytesio)"""
     card_image = PIL.Image.new(MODE, CARD_SIZE, BG_COLOR)
     draw = PIL.ImageDraw.Draw(card_image)
 
     draw_grid(draw)
-    draw_labels(draw, center_word, words, 5)
+    draw_labels(draw, center_word, word_set, 5)
     draw_logo(card_image, draw)
 
     # save the image to a binary buffer and rewind it
@@ -176,6 +174,12 @@ def generate_card(word_set_filename):
     result_image_bytes.seek(0)
 
     return result_image_bytes
+
+
+def generate_card_from_file(word_set_filename):
+    """wrapped to generate_card to load words from a text file"""
+    center_word, words = load_word_set(word_set_filename)
+    generate_card(center_word, words)
 
 
 if __name__ == "__main__":
