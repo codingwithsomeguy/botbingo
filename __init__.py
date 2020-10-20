@@ -4,6 +4,7 @@ import os
 import io
 import math
 import random
+import textwrap
 
 import PIL.Image
 import PIL.ImageDraw
@@ -15,7 +16,7 @@ NUDGE = 8
 MODE = "RGBA"
 IMAGE_FORMAT = "PNG"
 
-PALETTE = ["#597498", "#b8c6d8", "#8499b6", "#37547d", "#1d3a62"]
+PALETTE = ["#37547d", "#1d3a62", "#8499b6", "#ffffff", "#ffffff"]
 LINE_COLOR = PALETTE[4]
 BG_COLOR = PALETTE[1]
 FG_COLOR = LINE_COLOR
@@ -49,7 +50,7 @@ def draw_grid(draw):
 
     draw.rectangle(
         ((0, 0), (image_size[0] - 1, image_size[1] - 1)),
-        outline="blue",
+        outline="white",
         width=1,
     )
     for col in range(1, 5):
@@ -69,6 +70,7 @@ def get_center_box(boxes_per_side):
     return math.floor(boxes_per_side / 2)
 
 
+# TODO: fix this for multiline text (properly)
 def get_left_top(draw, image_size, boxes_per_side, location, word):
     """overly simple text layout top left pixel selector"""
     # draw is needed for font metrics, but could use a private draw
@@ -77,7 +79,7 @@ def get_left_top(draw, image_size, boxes_per_side, location, word):
     box_size = get_box_size(image_size, boxes_per_side)
     # not using text_height due to descenders between fonts
     #  causing issues
-    text_width, _ = draw.textsize(word, font=FONT)
+    text_width, text_height = draw.multiline_textsize(word, font=FONT)
     if text_width > (box_size[0] - NUDGE):
         text_width, _ = draw.textsize(word, font=SMALL_FONT)
         chosen_font = SMALL_FONT
@@ -86,8 +88,9 @@ def get_left_top(draw, image_size, boxes_per_side, location, word):
         location[1] * box_size[0] + (box_size[0] / 2) - (text_width / 2)
     )
 
+    # doesn't check overflow
     top_side = math.floor(
-        location[0] * box_size[1] + (box_size[1] / 2) - (chosen_font.size / 2)
+        location[0] * box_size[1] + (box_size[1] / 2) - (text_height / 2)
     )
 
     return (left_side, top_side), chosen_font
@@ -98,19 +101,25 @@ def draw_labels(draw, center_label, labels, boxes_per_side):
     image_size = draw.im.size
     center_box_side = get_center_box(boxes_per_side)
 
+    if boxes_per_side ** 2 > len(labels):
+        raise Exception("Not enough words for grid size")
+
     for which_word in range(boxes_per_side ** 2):
         loc = (
             math.floor(which_word / boxes_per_side),
             which_word % boxes_per_side,
         )
-        chosen_word = labels[which_word]
+        # TODO: adjust width in a font sensitive way
+        chosen_word = "\n".join(textwrap.wrap(labels[which_word], width=14))
         if loc[0] == center_box_side and loc[1] == center_box_side:
             chosen_word = center_label
 
         left_top, chosen_font = get_left_top(
             draw, image_size, boxes_per_side, loc, chosen_word
         )
-        draw.text(left_top, chosen_word, font=chosen_font, fill=FG_COLOR)
+        draw.multiline_text(
+            left_top, chosen_word, font=chosen_font,
+            fill=FG_COLOR, align="center")
 
 
 def draw_logo(img, draw):
@@ -136,7 +145,7 @@ def draw_logo(img, draw):
             (img.size[0] - 1, img.size[1] - 1),
         ),
         fill=BG_COLOR,
-        outline="blue",
+        outline="white",
         width=1,
     )
     img.paste(
@@ -182,8 +191,21 @@ def generate_card_from_file(word_set_filename):
     generate_card(center_word, words)
 
 
+def get_center_and_word_set_from_file(filename):
+    # assumes the first word is always the center word
+
+    word_set = [label.strip() for label in open(filename).readlines()]
+    if len(word_set) < 2:
+        raise Exception("Not enough labels in word_set")
+
+    non_center_words = word_set[1:]
+    random.shuffle(non_center_words)
+    return word_set[0], non_center_words
+
+
 if __name__ == "__main__":
-    # WORD_SET = "/usr/share/dict/words"
-    WORD_SET = "bingotestlabels.txt"
-    image = generate_card(WORD_SET)
+    # word_file = "/usr/share/dict/words"
+    word_file = "bingotestlabels.txt"
+    center_word, non_center_words = get_center_and_word_set_from_file(word_file)
+    image = generate_card(center_word, non_center_words)
     open("bingotestcard.png", "wb").write(image.read())
