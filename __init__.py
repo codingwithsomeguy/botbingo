@@ -79,9 +79,14 @@ def get_left_top(draw, image_size, boxes_per_side, location, word):
     box_size = get_box_size(image_size, boxes_per_side)
     # not using text_height due to descenders between fonts
     #  causing issues
-    text_width, text_height = draw.multiline_textsize(word, font=FONT)
+    bbox = draw.multiline_textbbox((0, 0), word, font=FONT)
+    # not quite right due to possible negative left/top
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
     if text_width > (box_size[0] - NUDGE):
-        text_width, _ = draw.textsize(word, font=SMALL_FONT)
+        bbox = draw.multiline_textbbox((0, 0), word, font=SMALL_FONT)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
         chosen_font = SMALL_FONT
 
     left_side = math.floor(
@@ -134,7 +139,10 @@ def draw_logo(img, draw):
     )
 
     logo_text = "codingwithsomeguy.com"
-    text_width, text_height = draw.textsize(logo_text, font=font)
+    bbox = draw.multiline_textbbox((0, 0), logo_text, font=font)
+    # not quite right due to possible negative left/top
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
     top_left = (
         img.size[0] - text_width - logo.size[0] - 10,
         img.size[1] - text_height - 3,
@@ -193,8 +201,12 @@ def generate_card_from_file(word_set_filename):
 
 def get_center_and_word_set_from_file(filename):
     # assumes the first word is always the center word
-
-    word_set = [label.strip() for label in open(filename).readlines()]
+    word_set = []
+    with open(filename) as word_file:
+        for line in word_file.readlines():
+            line_parts = line.strip().split("\t")
+            if len(line_parts) > 0:
+                word_set.append(line_parts[0])
     if len(word_set) < 2:
         raise Exception("Not enough labels in word_set")
 
